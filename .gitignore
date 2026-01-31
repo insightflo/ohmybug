@@ -1,0 +1,29 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+
+# macOS
+.DS_Store
+*.dSYM
+
+# Environment / Secrets
+.env
+.env.*
+*.key
+
+# IDE
+.vscode/
+.idea/
+
+# Node (for ESLint/Prettier)
+node_modules/
+
+# Backup files created by OhMyBug
+*.ohmybug-backup/
