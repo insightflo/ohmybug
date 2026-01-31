@@ -2,7 +2,7 @@
 
 Swift, JavaScript/TypeScript, Flutter/Dart 프로젝트의 코드 품질 이슈를 자동으로 스캔하고 수정합니다.
 
-macOS CLI + 네이티브 SwiftUI 앱.
+**CLI**: macOS + Windows | **GUI 앱**: macOS 전용
 
 ## 주요 기능
 
@@ -11,28 +11,48 @@ macOS CLI + 네이티브 SwiftUI 앱.
 - **AI 자동 수정** — 도구로 해결 못하는 이슈는 GLM (CodeGeeX-4)이 수정
 - **안전한 기본값** — 수정 전 자동 백업. 빌드 실패시 자동 롤백
 - **2단계 워크플로우** — 스캔 → 리뷰 → 수정. 예상치 못한 변경 없음
-- **CLI + GUI** — 터미널 또는 macOS 앱에서 사용
+- **크로스 플랫폼 CLI** — macOS와 Windows에서 동작
+
+## 플랫폼 지원
+
+| 기능 | macOS | Windows |
+|------|-------|---------|
+| CLI | ✅ | ✅ |
+| SwiftUI 앱 | ✅ | ❌ |
+| Swift 스캔 (SwiftLint, SwiftFormat) | ✅ | ❌ |
+| JS/TS 스캔 (ESLint, Prettier) | ✅ | ✅ |
+| Dart/Flutter 스캔 | ✅ | ✅ |
+| AI 자동 수정 (GLM) | ✅ | ✅ |
+
+> **참고**: Swift 도구는 Windows에서 사용할 수 없어 Swift 관련 스캐너는 자동으로 비활성화됩니다.
 
 ## 요구사항
 
+### macOS
 - macOS 14.0+
 - Swift 5.9+
 - Xcode 15+ (또는 Swift 툴체인)
 
-### 선택 사항 (자동 감지)
+### Windows
+- Windows 10+
+- [Swift for Windows](https://www.swift.org/download/) 5.9+
+- Node.js (ESLint/Prettier용)
+- Flutter SDK (Dart/Flutter 프로젝트용)
 
-| 도구 | 용도 | 설치 |
-|------|------|------|
-| SwiftLint | Swift 린팅 | `brew install swiftlint` |
-| SwiftFormat | Swift 포맷팅 | `brew install swiftformat` |
-| Node.js + npx | JS/TS 린팅 & 포맷팅 | `brew install node` |
-| Flutter SDK | Dart/Flutter 분석 | [flutter.dev](https://flutter.dev) |
+### 선택 도구 (자동 감지)
+
+| 도구 | 용도 | macOS 설치 | Windows 설치 |
+|------|------|------------|--------------|
+| SwiftLint | Swift 린팅 | `brew install swiftlint` | 해당 없음 (macOS 전용) |
+| SwiftFormat | Swift 포맷팅 | `brew install swiftformat` | 해당 없음 (macOS 전용) |
+| Node.js + npx | JS/TS 린팅 & 포맷팅 | `brew install node` | [nodejs.org](https://nodejs.org) |
+| Flutter SDK | Dart/Flutter 분석 | [flutter.dev](https://flutter.dev) | [flutter.dev](https://flutter.dev) |
 
 OhMyBug는 설치된 도구에 대해서만 스캐너를 실행합니다. 도구 미설치 = 스캐너 건너뜀.
 
 ## 설치
 
-### CLI
+### CLI (macOS)
 
 ```bash
 git clone https://github.com/insightflo/ohmybug.git
@@ -44,6 +64,17 @@ swift build -c release
 
 # 선택: PATH에 복사
 cp .build/release/ohmybug /usr/local/bin/
+```
+
+### CLI (Windows)
+
+```powershell
+git clone https://github.com/insightflo/ohmybug.git
+cd ohmybug\OhMyBugCore
+swift build -c release
+
+# 바이너리 위치:
+# .build\release\ohmybug.exe
 ```
 
 ### macOS 앱
@@ -92,17 +123,17 @@ OhMyBug는 AI 자동 수정에 [Zhipu AI의 CodeGeeX-4](https://open.bigmodel.cn
 
 ```
 ohmybug/
-├── OhMyBugCore/             # SPM 라이브러리 + CLI
+├── OhMyBugCore/             # SPM 라이브러리 + CLI (크로스 플랫폼)
 │   ├── Sources/
 │   │   ├── OhMyBugCore/
 │   │   │   ├── Models/      # Issue, ScanResult, FixResult, PipelineReport
 │   │   │   ├── Scanners/    # SwiftLint, SwiftFormat, ESLint, Prettier, Dart, Flutter, BuildChecker
 │   │   │   ├── Fixers/      # LLMClient (GLM), AIFixer
 │   │   │   ├── Pipeline/    # PipelineEngine (actor), 스캐너 등록
-│   │   │   └── Utils/       # ShellRunner, ToolInstaller, ProjectDetector, BackupManager
+│   │   │   └── Utils/       # ShellRunner, ToolInstaller, ProjectDetector, BackupManager, Platform
 │   │   └── OhMyBugCLI/      # CLI 진입점
 │   └── Tests/
-└── OhMyBugApp/              # SwiftUI macOS 앱
+└── OhMyBugApp/              # SwiftUI macOS 앱 (macOS 전용)
     └── OhMyBugApp/
         ├── Views/           # ProjectDropZone, PhaseIndicator, LogView, ResultsDashboard, ScanReportView, SettingsPanel
         ├── ViewModels/      # AppViewModel, AppSettings
@@ -124,7 +155,8 @@ ohmybug/
 - `PipelineEngine`은 안전한 동시성을 위해 Swift `actor` 사용
 - 뷰는 `@Observable` 사용 (Swift 5.9 Observation 프레임워크, ObservableObject 아님)
 - BuildChecker는 하위 디렉토리에서 빌드 가능한 타겟 검색 (Package.swift, pubspec.yaml, .xcodeproj)
-- 모든 쉘 명령은 `ShellRunner`를 통해 실행 (작업 디렉토리 설정 가능)
+- 모든 쉘 명령은 `ShellRunner`를 통해 OS별 쉘 감지로 실행
+- 플랫폼별 코드는 `#if os(Windows)` / `#if os(macOS)` 조건부 컴파일 사용
 
 ## 라이선스
 

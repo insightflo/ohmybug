@@ -2,11 +2,15 @@
 
 import PackageDescription
 
+#if os(macOS)
+let platformConfig: [SupportedPlatform] = [.macOS(.v14)]
+#else
+let platformConfig: [SupportedPlatform] = []
+#endif
+
 let package = Package(
     name: "OhMyBugCore",
-    platforms: [
-        .macOS(.v14),
-    ],
+    platforms: platformConfig,
     products: [
         .library(
             name: "OhMyBugCore",

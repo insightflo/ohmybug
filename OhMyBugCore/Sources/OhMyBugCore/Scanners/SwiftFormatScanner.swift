@@ -7,7 +7,11 @@ public struct SwiftFormatScanner: ScannerFixer {
     public init() {}
 
     public func isAvailable() async -> Bool {
-        await ToolInstaller.isInstalled("swiftformat")
+        #if os(Windows)
+        return false
+        #else
+        return await ToolInstaller.isInstalled("swiftformat")
+        #endif
     }
 
     public func scan(projectPath: String) async throws -> ScanResult {

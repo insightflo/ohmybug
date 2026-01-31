@@ -50,14 +50,26 @@ public enum ShellRunner {
     }
 
     public static func which(_ tool: String) async -> String? {
+        #if os(Windows)
+        guard let output = try? await runShell("where \(tool)") else {
+            return nil
+        }
+        let path = output.stdout.components(separatedBy: .newlines).first?.trimmingCharacters(in: .whitespaces)
+        return (path?.isEmpty ?? true) ? nil : path
+        #else
         guard let output = try? await run("/usr/bin/which", arguments: [tool]) else {
             return nil
         }
         let path = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
         return path.isEmpty ? nil : path
+        #endif
     }
 
     public static func runShell(_ command: String, workingDirectory: String? = nil) async throws -> ShellOutput {
+        #if os(Windows)
+        try await run("cmd.exe", arguments: ["/c", command], workingDirectory: workingDirectory)
+        #else
         try await run("/bin/bash", arguments: ["-c", command], workingDirectory: workingDirectory)
+        #endif
     }
 }

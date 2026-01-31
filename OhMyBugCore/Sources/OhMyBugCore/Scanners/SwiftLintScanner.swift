@@ -7,7 +7,11 @@ public struct SwiftLintScanner: ScannerFixer {
     public init() {}
 
     public func isAvailable() async -> Bool {
-        await ToolInstaller.isInstalled("swiftlint")
+        #if os(Windows)
+        return false
+        #else
+        return await ToolInstaller.isInstalled("swiftlint")
+        #endif
     }
 
     public func scan(projectPath: String) async throws -> ScanResult {

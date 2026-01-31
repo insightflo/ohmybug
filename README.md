@@ -2,7 +2,7 @@
 
 Automatically scan and fix code quality issues across Swift, JavaScript/TypeScript, and Flutter/Dart projects.
 
-macOS CLI + native SwiftUI app.
+**CLI**: macOS + Windows | **GUI App**: macOS only
 
 ## Features
 
@@ -11,31 +11,51 @@ macOS CLI + native SwiftUI app.
 - **AI-powered fixes** — Uses GLM (CodeGeeX-4) for issues that tools can't auto-fix
 - **Safe by default** — Creates file backups before any fix. Auto-rollback if build fails after fixing
 - **2-phase workflow** — Scan → Review → Fix. No surprise changes
-- **CLI + GUI** — Use from terminal or the native macOS app
+- **Cross-platform CLI** — Works on macOS and Windows
+
+## Platform Support
+
+| Feature | macOS | Windows |
+|---------|-------|---------|
+| CLI | ✅ | ✅ |
+| SwiftUI App | ✅ | ❌ |
+| Swift scanning (SwiftLint, SwiftFormat) | ✅ | ❌ |
+| JS/TS scanning (ESLint, Prettier) | ✅ | ✅ |
+| Dart/Flutter scanning | ✅ | ✅ |
+| AI-powered fixes (GLM) | ✅ | ✅ |
+
+> **Note**: Swift tools are not available on Windows, so Swift-related scanners are automatically disabled.
 
 ## Requirements
 
+### macOS
 - macOS 14.0+
 - Swift 5.9+
 - Xcode 15+ (or Swift toolchain)
 
-### Optional (auto-detected)
+### Windows
+- Windows 10+
+- [Swift for Windows](https://www.swift.org/download/) 5.9+
+- Node.js (for ESLint/Prettier)
+- Flutter SDK (for Dart/Flutter projects)
 
-| Tool | For | Install |
-|------|-----|---------|
-| SwiftLint | Swift linting | `brew install swiftlint` |
-| SwiftFormat | Swift formatting | `brew install swiftformat` |
-| Node.js + npx | JS/TS linting & formatting | `brew install node` |
-| Flutter SDK | Dart/Flutter analysis | [flutter.dev](https://flutter.dev) |
+### Optional Tools (auto-detected)
+
+| Tool | For | macOS Install | Windows Install |
+|------|-----|---------------|-----------------|
+| SwiftLint | Swift linting | `brew install swiftlint` | N/A (macOS only) |
+| SwiftFormat | Swift formatting | `brew install swiftformat` | N/A (macOS only) |
+| Node.js + npx | JS/TS linting & formatting | `brew install node` | [nodejs.org](https://nodejs.org) |
+| Flutter SDK | Dart/Flutter analysis | [flutter.dev](https://flutter.dev) | [flutter.dev](https://flutter.dev) |
 
 OhMyBug only runs scanners for tools that are installed. No tool = scanner skipped.
 
 ## Installation
 
-### CLI
+### CLI (macOS)
 
 ```bash
-git clone https://github.com/your-username/ohmybug.git
+git clone https://github.com/insightflo/ohmybug.git
 cd ohmybug/OhMyBugCore
 swift build -c release
 
@@ -44,6 +64,17 @@ swift build -c release
 
 # Optional: copy to PATH
 cp .build/release/ohmybug /usr/local/bin/
+```
+
+### CLI (Windows)
+
+```powershell
+git clone https://github.com/insightflo/ohmybug.git
+cd ohmybug\OhMyBugCore
+swift build -c release
+
+# The binary is at:
+# .build\release\ohmybug.exe
 ```
 
 ### macOS App
@@ -92,17 +123,17 @@ OhMyBug uses [Zhipu AI's CodeGeeX-4](https://open.bigmodel.cn/) for AI-powered f
 
 ```
 ohmybug/
-├── OhMyBugCore/             # SPM library + CLI
+├── OhMyBugCore/             # SPM library + CLI (cross-platform)
 │   ├── Sources/
 │   │   ├── OhMyBugCore/
 │   │   │   ├── Models/      # Issue, ScanResult, FixResult, PipelineReport
 │   │   │   ├── Scanners/    # SwiftLint, SwiftFormat, ESLint, Prettier, Dart, Flutter, BuildChecker
 │   │   │   ├── Fixers/      # LLMClient (GLM), AIFixer
 │   │   │   ├── Pipeline/    # PipelineEngine (actor), scanner registration
-│   │   │   └── Utils/       # ShellRunner, ToolInstaller, ProjectDetector, BackupManager
+│   │   │   └── Utils/       # ShellRunner, ToolInstaller, ProjectDetector, BackupManager, Platform
 │   │   └── OhMyBugCLI/      # CLI entry point
 │   └── Tests/
-└── OhMyBugApp/              # SwiftUI macOS app
+└── OhMyBugApp/              # SwiftUI macOS app (macOS only)
     └── OhMyBugApp/
         ├── Views/           # ProjectDropZone, PhaseIndicator, LogView, ResultsDashboard, ScanReportView, SettingsPanel
         ├── ViewModels/      # AppViewModel, AppSettings
@@ -124,7 +155,8 @@ ohmybug/
 - `PipelineEngine` is a Swift `actor` for safe concurrency
 - Views use `@Observable` (Swift 5.9 Observation framework, not ObservableObject)
 - BuildChecker searches subdirectories for buildable targets (Package.swift, pubspec.yaml, .xcodeproj)
-- All shell commands run via `ShellRunner` with configurable working directory
+- All shell commands run via `ShellRunner` with OS-specific shell detection
+- Platform-specific code uses `#if os(Windows)` / `#if os(macOS)` conditionals
 
 ## License
 

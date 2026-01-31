@@ -6,6 +6,9 @@ public enum ToolInstaller {
             return path
         }
 
+        #if os(Windows)
+        throw ToolError.toolNotAvailable(tool: tool)
+        #else
         let package = brewPackage ?? tool
         let brewPath = await ShellRunner.which("brew")
         guard brewPath != nil else {
@@ -21,6 +24,7 @@ public enum ToolInstaller {
             throw ToolError.notFoundAfterInstall(tool: tool)
         }
         return path
+        #endif
     }
 
     public static func isInstalled(_ tool: String) async -> Bool {

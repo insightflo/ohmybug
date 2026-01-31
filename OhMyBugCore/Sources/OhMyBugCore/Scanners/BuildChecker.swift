@@ -52,14 +52,16 @@ public struct BuildChecker: Scanner {
         let fm = FileManager.default
         var targets: [BuildTarget] = []
 
+        #if !os(Windows)
         if fm.fileExists(atPath: "\(rootPath)/Package.swift") {
             targets.append(BuildTarget(path: rootPath, kind: .spm))
         }
-        if fm.fileExists(atPath: "\(rootPath)/pubspec.yaml") {
-            targets.append(BuildTarget(path: rootPath, kind: .pubspec))
-        }
         if (try? fm.contentsOfDirectory(atPath: rootPath))?.contains(where: { $0.hasSuffix(".xcodeproj") }) == true {
             targets.append(BuildTarget(path: rootPath, kind: .xcodeproj))
+        }
+        #endif
+        if fm.fileExists(atPath: "\(rootPath)/pubspec.yaml") {
+            targets.append(BuildTarget(path: rootPath, kind: .pubspec))
         }
 
         if !targets.isEmpty { return targets }
@@ -73,14 +75,16 @@ public struct BuildChecker: Scanner {
             var isDir: ObjCBool = false
             guard fm.fileExists(atPath: subPath, isDirectory: &isDir), isDir.boolValue else { continue }
 
+            #if !os(Windows)
             if fm.fileExists(atPath: "\(subPath)/Package.swift") {
                 targets.append(BuildTarget(path: subPath, kind: .spm))
             }
-            if fm.fileExists(atPath: "\(subPath)/pubspec.yaml") {
-                targets.append(BuildTarget(path: subPath, kind: .pubspec))
-            }
             if (try? fm.contentsOfDirectory(atPath: subPath))?.contains(where: { $0.hasSuffix(".xcodeproj") }) == true {
                 targets.append(BuildTarget(path: subPath, kind: .xcodeproj))
+            }
+            #endif
+            if fm.fileExists(atPath: "\(subPath)/pubspec.yaml") {
+                targets.append(BuildTarget(path: subPath, kind: .pubspec))
             }
         }
 
