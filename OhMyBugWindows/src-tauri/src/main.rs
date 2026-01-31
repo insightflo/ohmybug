@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::process::Command;
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ScanResult {
@@ -19,10 +20,40 @@ pub struct ScanSummary {
     pub low: i32,
 }
 
+fn find_cli() -> Option<PathBuf> {
+    let candidates = [
+        dirs::home_dir().map(|h| h.join("bin/ohmybug")),
+        Some(PathBuf::from("/usr/local/bin/ohmybug")),
+        Some(PathBuf::from("/opt/homebrew/bin/ohmybug")),
+        Some(PathBuf::from("ohmybug")),
+    ];
+
+    for candidate in candidates.iter().flatten() {
+        if candidate.exists() || candidate.to_str() == Some("ohmybug") {
+            if let Ok(output) = Command::new(candidate).arg("--version").output() {
+                if output.status.success() {
+                    return Some(candidate.clone());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn get_cli_path() -> Result<PathBuf, String> {
+    find_cli().ok_or_else(|| "ohmybug CLI not found".to_string())
+}
+
 #[tauri::command]
-async fn scan_project(path: String) -> Result<ScanResult, String> {
-    let output = Command::new("ohmybug")
-        .args(["check", &path, "--format", "json"])
+async fn scan_project(path: String, auto_fix: bool) -> Result<ScanResult, String> {
+    let cli = get_cli_path()?;
+    let mut args = vec!["check", &path, "--format", "json"];
+    if auto_fix {
+        args.push("--fix");
+    }
+
+    let output = Command::new(&cli)
+        .args(&args)
         .output()
         .map_err(|e| format!("Failed to execute ohmybug: {}", e))?;
 
@@ -43,21 +74,9 @@ async fn scan_project(path: String) -> Result<ScanResult, String> {
 }
 
 #[tauri::command]
-async fn scan_project_markdown(path: String) -> Result<String, String> {
-    let output = Command::new("ohmybug")
-        .args(["check", &path, "--format", "markdown"])
-        .output()
-        .map_err(|e| format!("Failed to execute ohmybug: {}", e))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-    Ok(if stdout.is_empty() { stderr } else { stdout })
-}
-
-#[tauri::command]
 async fn fix_project(path: String) -> Result<ScanResult, String> {
-    let output = Command::new("ohmybug")
+    let cli = get_cli_path()?;
+    let output = Command::new(&cli)
         .args(["check", &path, "--fix", "--format", "json"])
         .output()
         .map_err(|e| format!("Failed to execute ohmybug: {}", e))?;
@@ -76,11 +95,18 @@ async fn fix_project(path: String) -> Result<ScanResult, String> {
 
 #[tauri::command]
 async fn check_cli_available() -> bool {
-    Command::new("ohmybug")
+    find_cli().is_some()
+}
+
+#[tauri::command]
+async fn get_cli_version() -> Result<String, String> {
+    let cli = get_cli_path()?;
+    let output = Command::new(&cli)
         .arg("--version")
         .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+        .map_err(|e| format!("Failed to get version: {}", e))?;
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
 fn parse_summary(output: &str) -> Option<ScanSummary> {
@@ -102,9 +128,9 @@ fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             scan_project,
-            scan_project_markdown,
             fix_project,
             check_cli_available,
+            get_cli_version,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
