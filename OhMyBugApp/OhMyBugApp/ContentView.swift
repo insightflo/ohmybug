@@ -82,8 +82,8 @@ struct ContentView: View {
             .padding(.vertical, 10)
         }
         .buttonStyle(.borderedProminent)
-        .tint(Theme.accent)
-        .foregroundStyle(.black)
+        .tint(Color(red: 0.2, green: 0.5, blue: 1.0))
+        .foregroundStyle(.white)
         .disabled(!viewModel.hasProject)
     }
 
