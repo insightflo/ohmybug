@@ -8,7 +8,58 @@ public enum JSFramework: String, CaseIterable, Sendable {
     case express
     case nestjs
     case vanilla
+}
 
+public struct FrameworkInfo: Sendable {
+    public let framework: JSFramework
+    public let version: String?
+    public let majorVersion: Int?
+
+    public var displayName: String {
+        var name = framework.displayName
+        if let version = version {
+            name += " \(version)"
+        }
+        return name
+    }
+
+    public var eslintConfig: String? {
+        switch framework {
+        case .vue:
+            guard let major = majorVersion else { return "plugin:vue/recommended" }
+            return major >= 3 ? "plugin:vue/vue3-recommended" : "plugin:vue/recommended"
+        case .react:
+            return "plugin:react/recommended"
+        case .nextjs:
+            return "plugin:@next/next/recommended"
+        case .nuxtjs:
+            guard let major = majorVersion else { return "@nuxt/eslint-config" }
+            return major >= 3 ? "@nuxt/eslint-config" : "@nuxtjs/eslint-config"
+        default:
+            return nil
+        }
+    }
+
+    public var eslintPlugins: [String] {
+        switch framework {
+        case .react:
+            return ["eslint-plugin-react", "eslint-plugin-react-hooks"]
+        case .nextjs:
+            return ["eslint-plugin-react", "eslint-plugin-react-hooks", "@next/eslint-plugin-next"]
+        case .vue:
+            return ["eslint-plugin-vue"]
+        case .nuxtjs:
+            if let major = majorVersion, major >= 3 {
+                return ["@nuxt/eslint-config"]
+            }
+            return ["eslint-plugin-vue", "@nuxtjs/eslint-config"]
+        case .express, .nestjs, .vanilla:
+            return []
+        }
+    }
+}
+
+extension JSFramework {
     public var displayName: String {
         switch self {
         case .react: return "React"
@@ -21,50 +72,85 @@ public enum JSFramework: String, CaseIterable, Sendable {
         }
     }
 
-    public var eslintPlugins: [String] {
+    fileprivate var packageName: String {
         switch self {
-        case .react:
-            return ["eslint-plugin-react", "eslint-plugin-react-hooks"]
-        case .nextjs:
-            return ["eslint-plugin-react", "eslint-plugin-react-hooks", "@next/eslint-plugin-next"]
-        case .vue:
-            return ["eslint-plugin-vue"]
-        case .nuxtjs:
-            return ["eslint-plugin-vue", "@nuxt/eslint-plugin"]
-        case .express, .nestjs, .vanilla:
-            return []
+        case .react: return "react"
+        case .nextjs: return "next"
+        case .vue: return "vue"
+        case .nuxtjs: return "nuxt"
+        case .express: return "express"
+        case .nestjs: return "@nestjs/core"
+        case .vanilla: return ""
         }
     }
 }
 
 public enum FrameworkDetector {
-    public static func detect(at projectPath: String) -> [JSFramework] {
+    public static func detectWithVersions(at projectPath: String) -> [FrameworkInfo] {
         guard let packageJson = readPackageJson(at: projectPath) else {
-            return [.vanilla]
+            return [FrameworkInfo(framework: .vanilla, version: nil, majorVersion: nil)]
         }
 
-        var frameworks: [JSFramework] = []
-        let allDeps = mergeDependencies(packageJson)
+        let deps = getDependenciesWithVersions(packageJson)
+        var frameworks: [FrameworkInfo] = []
 
-        if allDeps.contains("next") {
-            frameworks.append(.nextjs)
-        } else if allDeps.contains("react") {
-            frameworks.append(.react)
+        if let nextVersion = deps["next"] {
+            let info = FrameworkInfo(
+                framework: .nextjs,
+                version: cleanVersion(nextVersion),
+                majorVersion: parseMajorVersion(nextVersion)
+            )
+            frameworks.append(info)
+        } else if let reactVersion = deps["react"] {
+            let info = FrameworkInfo(
+                framework: .react,
+                version: cleanVersion(reactVersion),
+                majorVersion: parseMajorVersion(reactVersion)
+            )
+            frameworks.append(info)
         }
 
-        if allDeps.contains("nuxt") {
-            frameworks.append(.nuxtjs)
-        } else if allDeps.contains("vue") {
-            frameworks.append(.vue)
+        if let nuxtVersion = deps["nuxt"] {
+            let info = FrameworkInfo(
+                framework: .nuxtjs,
+                version: cleanVersion(nuxtVersion),
+                majorVersion: parseMajorVersion(nuxtVersion)
+            )
+            frameworks.append(info)
+        } else if let vueVersion = deps["vue"] {
+            let info = FrameworkInfo(
+                framework: .vue,
+                version: cleanVersion(vueVersion),
+                majorVersion: parseMajorVersion(vueVersion)
+            )
+            frameworks.append(info)
         }
 
-        if allDeps.contains("@nestjs/core") {
-            frameworks.append(.nestjs)
-        } else if allDeps.contains("express") {
-            frameworks.append(.express)
+        if let nestVersion = deps["@nestjs/core"] {
+            let info = FrameworkInfo(
+                framework: .nestjs,
+                version: cleanVersion(nestVersion),
+                majorVersion: parseMajorVersion(nestVersion)
+            )
+            frameworks.append(info)
+        } else if let expressVersion = deps["express"] {
+            let info = FrameworkInfo(
+                framework: .express,
+                version: cleanVersion(expressVersion),
+                majorVersion: parseMajorVersion(expressVersion)
+            )
+            frameworks.append(info)
         }
 
-        return frameworks.isEmpty ? [.vanilla] : frameworks
+        if frameworks.isEmpty {
+            return [FrameworkInfo(framework: .vanilla, version: nil, majorVersion: nil)]
+        }
+
+        return frameworks
+    }
+
+    public static func detect(at projectPath: String) -> [JSFramework] {
+        detectWithVersions(at: projectPath).map(\.framework)
     }
 
     public static func hasESLintConfig(at projectPath: String) -> Bool {
@@ -95,13 +181,13 @@ public enum FrameworkDetector {
         return false
     }
 
-    public static func hasRequiredPlugins(at projectPath: String, for framework: JSFramework) -> Bool {
+    public static func hasRequiredPlugins(at projectPath: String, for frameworkInfo: FrameworkInfo) -> Bool {
         guard let packageJson = readPackageJson(at: projectPath) else {
             return false
         }
 
         let allDeps = mergeDependencies(packageJson)
-        let requiredPlugins = framework.eslintPlugins
+        let requiredPlugins = frameworkInfo.eslintPlugins
 
         return requiredPlugins.allSatisfy { allDeps.contains($0) }
     }
@@ -116,6 +202,19 @@ public enum FrameworkDetector {
         return json
     }
 
+    private static func getDependenciesWithVersions(_ packageJson: [String: Any]) -> [String: String] {
+        var deps: [String: String] = [:]
+
+        if let dependencies = packageJson["dependencies"] as? [String: String] {
+            deps.merge(dependencies) { _, new in new }
+        }
+        if let devDependencies = packageJson["devDependencies"] as? [String: String] {
+            deps.merge(devDependencies) { _, new in new }
+        }
+
+        return deps
+    }
+
     private static func mergeDependencies(_ packageJson: [String: Any]) -> Set<String> {
         var deps = Set<String>()
 
@@ -127,5 +226,23 @@ public enum FrameworkDetector {
         }
 
         return deps
+    }
+
+    private static func cleanVersion(_ version: String) -> String {
+        version
+            .replacingOccurrences(of: "^", with: "")
+            .replacingOccurrences(of: "~", with: "")
+            .replacingOccurrences(of: ">=", with: "")
+            .replacingOccurrences(of: ">", with: "")
+            .replacingOccurrences(of: "<=", with: "")
+            .replacingOccurrences(of: "<", with: "")
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    private static func parseMajorVersion(_ version: String) -> Int? {
+        let cleaned = cleanVersion(version)
+        let components = cleaned.components(separatedBy: ".")
+        guard let first = components.first else { return nil }
+        return Int(first)
     }
 }

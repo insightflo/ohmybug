@@ -83,6 +83,26 @@ struct Check: AsyncParsableCommand {
         print("  Medium: \(report.summary.medium)")
         print("  Low: \(report.summary.low)")
         print("Affected files: \(report.affectedFiles.count)")
+
+        let setupIssues = report.issues.filter { $0.rule.hasPrefix("setup/") }
+        if !setupIssues.isEmpty {
+            print("\n⚠️  Setup Issues:")
+            for issue in setupIssues {
+                print("  • \(issue.message)")
+            }
+        }
+
+        let criticalIssues = report.issues.filter { $0.severity == .critical }
+        if !criticalIssues.isEmpty {
+            print("\n🚨 Critical Issues:")
+            for issue in criticalIssues.prefix(5) {
+                let location = issue.line.map { ":\($0)" } ?? ""
+                print("  • [\(issue.rule)] \(issue.filePath)\(location): \(issue.message)")
+            }
+            if criticalIssues.count > 5 {
+                print("  ... and \(criticalIssues.count - 5) more")
+            }
+        }
     }
 
     private func formatReport(_ report: PipelineReport) -> String {

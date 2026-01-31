@@ -14,10 +14,10 @@ public struct ESLintScanner: ScannerFixer {
         let start = Date()
         var allIssues: [Issue] = []
 
-        let frameworks = FrameworkDetector.detect(at: projectPath)
+        let frameworkInfos = FrameworkDetector.detectWithVersions(at: projectPath)
         let hasConfig = FrameworkDetector.hasESLintConfig(at: projectPath)
 
-        allIssues.append(contentsOf: checkSetup(projectPath: projectPath, frameworks: frameworks, hasConfig: hasConfig))
+        allIssues.append(contentsOf: checkSetup(projectPath: projectPath, frameworkInfos: frameworkInfos, hasConfig: hasConfig))
 
         let hasNodeModules = FileManager.default.fileExists(atPath: "\(projectPath)/node_modules")
         guard hasNodeModules else {
@@ -94,27 +94,44 @@ public struct ESLintScanner: ScannerFixer {
         )
     }
 
-    private func checkSetup(projectPath: String, frameworks: [JSFramework], hasConfig: Bool) -> [Issue] {
+    private func checkSetup(projectPath: String, frameworkInfos: [FrameworkInfo], hasConfig: Bool) -> [Issue] {
         var issues: [Issue] = []
 
-        let frameworkNames = frameworks.filter { $0 != .vanilla }.map(\.displayName).joined(separator: ", ")
+        let detectedFrameworks = frameworkInfos.filter { $0.framework != .vanilla }
+        guard !detectedFrameworks.isEmpty else { return [] }
 
-        if !hasConfig && !frameworks.contains(.vanilla) {
+        let frameworkNames = detectedFrameworks.map(\.displayName).joined(separator: ", ")
+
+        if !hasConfig {
+            var configSuggestion = "Create eslint.config.js with: "
+            let configs = detectedFrameworks.compactMap(\.eslintConfig)
+            configSuggestion += configs.joined(separator: ", ")
+
             issues.append(Issue(
                 rule: "setup/missing-config",
-                message: "No ESLint config found. Detected: \(frameworkNames). Create eslint.config.js for framework-specific rules.",
+                message: "No ESLint config found. Detected: \(frameworkNames). \(configSuggestion)",
                 severity: .medium,
                 filePath: projectPath,
                 scanner: name
             ))
         }
 
-        for framework in frameworks where framework != .vanilla {
-            if !FrameworkDetector.hasRequiredPlugins(at: projectPath, for: framework) {
-                let plugins = framework.eslintPlugins.joined(separator: " ")
+        for info in detectedFrameworks {
+            if !FrameworkDetector.hasRequiredPlugins(at: projectPath, for: info) {
+                let plugins = info.eslintPlugins.joined(separator: " ")
+                var message = "\(info.displayName) detected but ESLint plugins missing."
+
+                if info.framework == .vue {
+                    if let major = info.majorVersion {
+                        message += " Use \(major >= 3 ? "plugin:vue/vue3-recommended" : "plugin:vue/recommended") in config."
+                    }
+                }
+
+                message += " Run: npm install -D \(plugins)"
+
                 issues.append(Issue(
                     rule: "setup/missing-plugins",
-                    message: "\(framework.displayName) detected but ESLint plugins missing. Run: npm install -D \(plugins)",
+                    message: message,
                     severity: .medium,
                     filePath: projectPath,
                     scanner: name
