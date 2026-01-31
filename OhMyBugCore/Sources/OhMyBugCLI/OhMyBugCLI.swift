@@ -21,8 +21,11 @@ struct Check: AsyncParsableCommand {
     @Argument(help: "Path to the project directory")
     var projectPath: String = "."
 
-    @Option(name: .long, help: "Output format: text, markdown, json")
+    @Option(name: .long, help: "Output format: text, markdown, json, sarif, html")
     var format: String = "text"
+
+    @Option(name: [.customShort("o"), .long], help: "Save report to file (e.g., report.html, report.sarif)")
+    var output: String?
 
     @Flag(name: .long, help: "Show detailed output")
     var verbose: Bool = false
@@ -71,13 +74,19 @@ struct Check: AsyncParsableCommand {
         printScanSummary(scanReport)
 
         guard fix else {
+            try outputReport(scanReport)
             print("\nScan only. Use --fix to apply auto-fixes.")
             return
         }
 
         print("\nApplying fixes (backup created)...")
         let report = try await engine.fix()
-        print(formatReport(report))
+
+        if output != nil {
+            try outputReport(report)
+        } else {
+            print(ReportFormatter.format(report, as: reportFormat))
+        }
 
         if report.buildSucceeded == false {
             print("\n⚠️  Build failed after fixes.")
@@ -85,6 +94,30 @@ struct Check: AsyncParsableCommand {
             let restored = try await engine.rollback()
             print("✅ Rolled back \(restored) files")
         }
+    }
+
+    private var reportFormat: ReportFormat {
+        ReportFormat(rawValue: format) ?? .text
+    }
+
+    private func outputReport(_ report: ScanReport) throws {
+        guard let outputPath = output else { return }
+
+        let formatted = ReportFormatter.format(report, as: reportFormat)
+        let url = URL(fileURLWithPath: outputPath)
+
+        try formatted.write(to: url, atomically: true, encoding: .utf8)
+        print("\n📄 Report saved to: \(outputPath)")
+    }
+
+    private func outputReport(_ report: PipelineReport) throws {
+        guard let outputPath = output else { return }
+
+        let formatted = ReportFormatter.format(report, as: reportFormat)
+        let url = URL(fileURLWithPath: outputPath)
+
+        try formatted.write(to: url, atomically: true, encoding: .utf8)
+        print("\n📄 Report saved to: \(outputPath)")
     }
 
     private func printGuidance(_ guidances: [SetupGuidance]) {
@@ -163,65 +196,6 @@ struct Check: AsyncParsableCommand {
         }
     }
 
-    private func formatReport(_ report: PipelineReport) -> String {
-        switch format {
-        case "markdown":
-            return formatMarkdown(report)
-        case "json":
-            return formatJSON(report)
-        default:
-            return formatText(report)
-        }
-    }
-
-    private func formatText(_ report: PipelineReport) -> String {
-        var output = "\n=== OhMyBug Scan Complete ===\n"
-        output += "Project: \(report.projectPath)\n"
-        output += "Duration: \(String(format: "%.1f", report.duration))s\n\n"
-
-        output += "Before: \(report.beforeIssues.total) issues"
-        output += " (Critical: \(report.beforeIssues.critical), High: \(report.beforeIssues.high), Medium: \(report.beforeIssues.medium))\n"
-        output += "After:  \(report.afterIssues.total) issues"
-        output += " (Critical: \(report.afterIssues.critical), High: \(report.afterIssues.high), Medium: \(report.afterIssues.medium))\n"
-        output += "Reduction: \(String(format: "%.0f", report.reductionPercentage))%\n"
-
-        if let buildOK = report.buildSucceeded {
-            output += "\nBuild: \(buildOK ? "SUCCEEDED ✅" : "FAILED ❌")\n"
-        }
-
-        return output
-    }
-
-    private func formatMarkdown(_ report: PipelineReport) -> String {
-        var md = "# OhMyBug Scan Report\n\n"
-        md += "| Metric | Before | After | Change |\n"
-        md += "|--------|--------|-------|--------|\n"
-        md += "| Total | \(report.beforeIssues.total) | \(report.afterIssues.total) | -\(String(format: "%.0f", report.reductionPercentage))% |\n"
-        md += "| Critical | \(report.beforeIssues.critical) | \(report.afterIssues.critical) | |\n"
-        md += "| High | \(report.beforeIssues.high) | \(report.afterIssues.high) | |\n"
-        md += "| Medium | \(report.beforeIssues.medium) | \(report.afterIssues.medium) | |\n"
-
-        if let buildOK = report.buildSucceeded {
-            md += "\n**Build**: \(buildOK ? "SUCCEEDED ✅" : "FAILED ❌")\n"
-        }
-
-        if !report.fixResults.isEmpty {
-            md += "\n## Auto-Fix Summary\n\n"
-            for fix in report.fixResults {
-                md += "- **\(fix.tool)**: \(fix.fixedFiles)/\(fix.totalFiles) files, \(fix.fixedIssueCount) issues fixed\n"
-            }
-        }
-
-        return md
-    }
-
-    private func formatJSON(_ report: PipelineReport) -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(report) else { return "{}" }
-        return String(data: data, encoding: .utf8) ?? "{}"
-    }
 }
 
 final class CLIDelegate: PipelineDelegate, @unchecked Sendable {
