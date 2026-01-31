@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import OhMyBugCore
 
 struct ProjectDropZone: View {
@@ -8,6 +9,7 @@ struct ProjectDropZone: View {
     let onDrop: (URL) -> Void
 
     @State private var isTargeted = false
+    @State private var isHovering = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -31,27 +33,33 @@ struct ProjectDropZone: View {
                     .background(Theme.accent.opacity(0.15))
                     .clipShape(Capsule())
             } else {
-                Image(systemName: "square.and.arrow.down")
+                Image(systemName: "folder.badge.plus")
                     .font(.system(size: 28))
-                    .foregroundStyle(Theme.textSecondary)
-                Text("Drop Project Here")
+                    .foregroundStyle(isHovering ? Theme.accent : Theme.textSecondary)
+                Text("Drop Project or Click to Open")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Theme.textSecondary)
+                    .foregroundStyle(isHovering ? Theme.accent : Theme.textSecondary)
             }
         }
         .frame(maxWidth: .infinity)
         .frame(height: 120)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(isTargeted ? Theme.accent.opacity(0.1) : Theme.surfaceLight)
+                .fill(isTargeted || isHovering ? Theme.accent.opacity(0.1) : Theme.surfaceLight)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(
-                    isTargeted ? Theme.accent : Theme.border,
+                    isTargeted || isHovering ? Theme.accent : Theme.border,
                     style: StrokeStyle(lineWidth: 1.5, dash: projectPath == nil ? [6] : [])
                 )
         )
+        .onHover { hovering in
+            isHovering = hovering
+        }
+        .onTapGesture {
+            openFolderPicker()
+        }
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
             guard let provider = providers.first else { return false }
             _ = provider.loadObject(ofClass: URL.self) { url, _ in
@@ -64,6 +72,19 @@ struct ProjectDropZone: View {
                 }
             }
             return true
+        }
+    }
+
+    private func openFolderPicker() {
+        let panel = NSOpenPanel()
+        panel.title = "Select Project Folder"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+
+        if panel.runModal() == .OK, let url = panel.url {
+            onDrop(url)
         }
     }
 }
