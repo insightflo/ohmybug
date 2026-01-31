@@ -3,6 +3,7 @@ import OhMyBugCore
 
 struct ScanReportView: View {
     let report: ScanReport
+    var onExport: ((ReportFormat) -> Void)?
 
     var body: some View {
         ScrollView {
@@ -28,6 +29,7 @@ struct ScanReportView: View {
                     .font(.system(size: 18, weight: .bold, design: .monospaced))
                     .foregroundStyle(Theme.accent)
                 Spacer()
+                exportMenu
                 Text(String(format: "%.1fs", report.completedAt.timeIntervalSince(report.startedAt)))
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary)
@@ -40,6 +42,30 @@ struct ScanReportView: View {
                 .foregroundStyle(Theme.warning)
                 .padding(.top, 4)
         }
+    }
+
+    private var exportMenu: some View {
+        Menu {
+            Button("Export as HTML") { onExport?(.html) }
+            Button("Export as Markdown") { onExport?(.markdown) }
+            Button("Export as JSON") { onExport?(.json) }
+            Button("Export as SARIF") { onExport?(.sarif) }
+            Divider()
+            Button("Export as Text") { onExport?(.text) }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "square.and.arrow.down")
+                Text("Export")
+            }
+            .font(.system(size: 11, weight: .medium, design: .monospaced))
+            .foregroundStyle(Theme.accent)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Theme.accent.opacity(0.1))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
     }
 
     private var summaryCard: some View {

@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import OhMyBugCore
 
 enum AppState {
@@ -138,6 +139,50 @@ final class AppViewModel {
 
     func appendLog(_ level: LogLevel, _ message: String, source: String? = nil) {
         logEntries.append(LogEntry(level: level, message: message, source: source))
+    }
+
+    func exportScanReport(format: ReportFormat) {
+        guard let report = scanReport else { return }
+
+        let panel = NSSavePanel()
+        panel.title = "Export Scan Report"
+        panel.nameFieldStringValue = "ohmybug-report.\(ReportFormatter.suggestedExtension(for: format))"
+        panel.allowedContentTypes = [.plainText]
+        panel.canCreateDirectories = true
+
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+
+            let content = ReportFormatter.format(report, as: format)
+            do {
+                try content.write(to: url, atomically: true, encoding: .utf8)
+                self.appendLog(.success, "Report exported to: \(url.path)")
+            } catch {
+                self.appendLog(.error, "Export failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    func exportPipelineReport(format: ReportFormat) {
+        guard let report = fixReport else { return }
+
+        let panel = NSSavePanel()
+        panel.title = "Export Pipeline Report"
+        panel.nameFieldStringValue = "ohmybug-report.\(ReportFormatter.suggestedExtension(for: format))"
+        panel.allowedContentTypes = [.plainText]
+        panel.canCreateDirectories = true
+
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+
+            let content = ReportFormatter.format(report, as: format)
+            do {
+                try content.write(to: url, atomically: true, encoding: .utf8)
+                self.appendLog(.success, "Report exported to: \(url.path)")
+            } catch {
+                self.appendLog(.error, "Export failed: \(error.localizedDescription)")
+            }
+        }
     }
 }
 

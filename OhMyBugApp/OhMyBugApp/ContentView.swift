@@ -147,13 +147,17 @@ struct ContentView: View {
         switch viewModel.appState {
         case .scanned:
             if let report = viewModel.scanReport {
-                ScanReportView(report: report)
+                ScanReportView(report: report) { format in
+                    viewModel.exportScanReport(format: format)
+                }
             } else {
                 LogView(entries: viewModel.logEntries)
             }
         case .fixed:
             if let report = viewModel.fixReport {
-                ResultsDashboard(report: report)
+                ResultsDashboard(report: report) { format in
+                    viewModel.exportPipelineReport(format: format)
+                }
             } else {
                 LogView(entries: viewModel.logEntries)
             }

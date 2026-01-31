@@ -3,6 +3,7 @@ import OhMyBugCore
 
 struct ResultsDashboard: View {
     let report: PipelineReport
+    var onExport: ((ReportFormat) -> Void)?
 
     var body: some View {
         ScrollView {
@@ -29,6 +30,7 @@ struct ResultsDashboard: View {
                     .font(.system(size: 18, weight: .bold, design: .monospaced))
                     .foregroundStyle(Theme.accent)
                 Spacer()
+                exportMenu
                 Text(String(format: "%.1fs", report.duration))
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary)
@@ -37,6 +39,30 @@ struct ResultsDashboard: View {
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(Theme.textSecondary)
         }
+    }
+
+    private var exportMenu: some View {
+        Menu {
+            Button("Export as HTML") { onExport?(.html) }
+            Button("Export as Markdown") { onExport?(.markdown) }
+            Button("Export as JSON") { onExport?(.json) }
+            Button("Export as SARIF") { onExport?(.sarif) }
+            Divider()
+            Button("Export as Text") { onExport?(.text) }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "square.and.arrow.down")
+                Text("Export")
+            }
+            .font(.system(size: 11, weight: .medium, design: .monospaced))
+            .foregroundStyle(Theme.accent)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Theme.accent.opacity(0.1))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
     }
 
     private var comparisonTable: some View {
