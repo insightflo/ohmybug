@@ -34,10 +34,21 @@ public extension PipelineEngine {
         registerFixer(dartFormat)
     }
 
+    func registerPythonScanners() {
+        let ruff = RuffScanner()
+        let ruffFormat = RuffFormatScanner()
+
+        registerScanner(ruff)
+        registerScanner(ruffFormat)
+        registerFixer(ruff)
+        registerFixer(ruffFormat)
+    }
+
     func registerAllScanners() {
         registerSwiftScanners()
         registerJSScanners()
         registerFlutterScanners()
+        registerPythonScanners()
     }
 
     func registerAIFixer(apiKey: String, maxIssuesPerRun: Int = 20) {

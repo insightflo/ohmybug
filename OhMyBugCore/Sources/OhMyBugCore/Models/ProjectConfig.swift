@@ -26,6 +26,7 @@ public enum ProjectType: String, Codable, Sendable {
     case swift
     case javascript
     case flutter
+    case python
     case mixed
     case auto
 }

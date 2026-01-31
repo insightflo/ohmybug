@@ -39,6 +39,18 @@ struct Check: AsyncParsableCommand {
             ? resolvedPath
             : FileManager.default.currentDirectoryPath + "/" + resolvedPath
 
+        let guidances = SetupGuide.analyze(projectPath: absolutePath)
+        printGuidance(guidances)
+
+        let unsupportedPlatforms = guidances.filter {
+            if case .unsupportedPlatform = $0.status { return true }
+            return false
+        }
+        if !unsupportedPlatforms.isEmpty && guidances.count == unsupportedPlatforms.count {
+            print("\n⛔ No supported project types detected. Exiting.")
+            return
+        }
+
         let config = ProjectConfig(
             projectPath: absolutePath,
             autoApplyFixes: fix,
@@ -72,6 +84,52 @@ struct Check: AsyncParsableCommand {
             print("Rolling back...")
             let restored = try await engine.rollback()
             print("✅ Rolled back \(restored) files")
+        }
+    }
+
+    private func printGuidance(_ guidances: [SetupGuidance]) {
+        guard !guidances.isEmpty else { return }
+
+        let unsupported = guidances.filter {
+            if case .unsupportedPlatform = $0.status { return true }
+            return false
+        }
+
+        let versionIssues = guidances.filter {
+            if case .unsupportedVersion = $0.status { return true }
+            return false
+        }
+
+        if !unsupported.isEmpty {
+            print("\n🚫 Unsupported Platforms Detected:")
+            print("─────────────────────────────────")
+            for guidance in unsupported {
+                print("\n\(guidance.severityIcon) \(guidance.message)")
+                for action in guidance.actions {
+                    print("   → \(action)")
+                }
+                if let url = guidance.docsUrl {
+                    print("   📚 \(url)")
+                }
+            }
+        }
+
+        if !versionIssues.isEmpty {
+            print("\n⚠️  Version Compatibility Warnings:")
+            print("──────────────────────────────────")
+            for guidance in versionIssues {
+                print("\n\(guidance.severityIcon) \(guidance.message)")
+                for action in guidance.actions {
+                    print("   → \(action)")
+                }
+                if let url = guidance.docsUrl {
+                    print("   📚 \(url)")
+                }
+            }
+        }
+
+        if !unsupported.isEmpty || !versionIssues.isEmpty {
+            print("")
         }
     }
 
