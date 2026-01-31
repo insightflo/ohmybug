@@ -308,13 +308,33 @@ public actor PipelineEngine {
         let sorted = issues.sorted { priorityOrder.firstIndex(of: $0.severity)! < priorityOrder.firstIndex(of: $1.severity)! }
 
         for issue in sorted {
-            let key = "\(issue.filePath):\(issue.line ?? 0):\(issue.message.lowercased().prefix(100))"
+            let normalizedMessage = normalizeMessage(issue.message)
+            let key = "\(issue.filePath):\(issue.line ?? 0):\(normalizedMessage)"
             if !seen.contains(key) {
                 seen.insert(key)
                 unique.append(issue)
             }
         }
         return unique
+    }
+
+    private func normalizeMessage(_ message: String) -> String {
+        var msg = message.lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: ".'\""))
+
+        let prefixesToRemove = [
+            "the named parameter ",
+            "unused import: ",
+            "don't invoke ",
+        ]
+        for prefix in prefixesToRemove {
+            if msg.hasPrefix(prefix) {
+                msg = String(msg.dropFirst(prefix.count))
+            }
+        }
+
+        return String(msg.prefix(80))
     }
 
     private func adjustSeverityForTestCode(_ issues: [Issue]) -> [Issue] {
