@@ -7,11 +7,25 @@ Swift, JavaScript/TypeScript, Flutter/Dart 프로젝트의 코드 품질 이슈�
 ## 주요 기능
 
 - **멀티 언어 지원** — Swift (SwiftLint, SwiftFormat), JS/TS (ESLint, Prettier), Dart/Flutter (dart analyze, dart format)
+- **프레임워크 감지** — React, Next.js, Vue, Nuxt.js, Express, NestJS 자동 감지 및 ESLint 설정 확인
 - **빌드 검증** — 수정 전후 프로젝트 빌드 확인
 - **AI 자동 수정** — 도구로 해결 못하는 이슈는 GLM (CodeGeeX-4)이 수정
 - **안전한 기본값** — 수정 전 자동 백업. 빌드 실패시 자동 롤백
 - **2단계 워크플로우** — 스캔 → 리뷰 → 수정. 예상치 못한 변경 없음
 - **크로스 플랫폼 CLI** — macOS와 Windows에서 동작
+
+## 지원 프레임워크
+
+| 프레임워크 | 감지 방법 | ESLint 플러그인 |
+|-----------|----------|----------------|
+| React | package.json의 `react` | eslint-plugin-react, eslint-plugin-react-hooks |
+| Next.js | package.json의 `next` | + @next/eslint-plugin-next |
+| Vue | package.json의 `vue` | eslint-plugin-vue |
+| Nuxt.js | package.json의 `nuxt` | + @nuxt/eslint-plugin |
+| Express.js | package.json의 `express` | (기본 JS 규칙) |
+| NestJS | package.json의 `@nestjs/core` | (기본 TS 규칙) |
+
+OhMyBug는 프레임워크를 자동 감지하고 필요한 ESLint 플러그인이 없으면 경고합니다.
 
 ## 플랫폼 지원
 

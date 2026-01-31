@@ -12,22 +12,44 @@ public struct ESLintScanner: ScannerFixer {
 
     public func scan(projectPath: String) async throws -> ScanResult {
         let start = Date()
+        var allIssues: [Issue] = []
 
-        let hasLocalESLint = FileManager.default.fileExists(
-            atPath: "\(projectPath)/node_modules/.bin/eslint"
+        let frameworks = FrameworkDetector.detect(at: projectPath)
+        let hasConfig = FrameworkDetector.hasESLintConfig(at: projectPath)
+
+        allIssues.append(contentsOf: checkSetup(projectPath: projectPath, frameworks: frameworks, hasConfig: hasConfig))
+
+        let hasNodeModules = FileManager.default.fileExists(atPath: "\(projectPath)/node_modules")
+        guard hasNodeModules else {
+            allIssues.append(Issue(
+                rule: "setup/node-modules",
+                message: "node_modules not found. Run 'npm install' first.",
+                severity: .high,
+                filePath: projectPath,
+                scanner: name
+            ))
+            return ScanResult(
+                scanner: name,
+                issues: allIssues,
+                fixedCount: 0,
+                scannedFiles: 0,
+                duration: Date().timeIntervalSince(start)
+            )
+        }
+
+        let result = try await ShellRunner.runShell(
+            "npx eslint . --format json 2>/dev/null || true",
+            workingDirectory: projectPath
         )
 
-        let command = hasLocalESLint
-            ? "npx eslint . --format json 2>/dev/null || true"
-            : "npx eslint . --format json 2>/dev/null || true"
+        let eslintIssues = parseOutput(result.stdout)
+        allIssues.append(contentsOf: eslintIssues)
 
-        let result = try await ShellRunner.runShell(command, workingDirectory: projectPath)
-        let issues = parseOutput(result.stdout)
-        let fileCount = Set(issues.map { $0.filePath }).count
+        let fileCount = Set(eslintIssues.map { $0.filePath }).count
 
         return ScanResult(
             scanner: name,
-            issues: issues,
+            issues: allIssues,
             fixedCount: 0,
             scannedFiles: fileCount,
             duration: Date().timeIntervalSince(start)
@@ -70,6 +92,37 @@ public struct ESLintScanner: ScannerFixer {
             fixedIssueCount: max(0, fixedCount),
             duration: Date().timeIntervalSince(start)
         )
+    }
+
+    private func checkSetup(projectPath: String, frameworks: [JSFramework], hasConfig: Bool) -> [Issue] {
+        var issues: [Issue] = []
+
+        let frameworkNames = frameworks.filter { $0 != .vanilla }.map(\.displayName).joined(separator: ", ")
+
+        if !hasConfig && !frameworks.contains(.vanilla) {
+            issues.append(Issue(
+                rule: "setup/missing-config",
+                message: "No ESLint config found. Detected: \(frameworkNames). Create eslint.config.js for framework-specific rules.",
+                severity: .medium,
+                filePath: projectPath,
+                scanner: name
+            ))
+        }
+
+        for framework in frameworks where framework != .vanilla {
+            if !FrameworkDetector.hasRequiredPlugins(at: projectPath, for: framework) {
+                let plugins = framework.eslintPlugins.joined(separator: " ")
+                issues.append(Issue(
+                    rule: "setup/missing-plugins",
+                    message: "\(framework.displayName) detected but ESLint plugins missing. Run: npm install -D \(plugins)",
+                    severity: .medium,
+                    filePath: projectPath,
+                    scanner: name
+                ))
+            }
+        }
+
+        return issues
     }
 
     private func parseOutput(_ json: String) -> [Issue] {

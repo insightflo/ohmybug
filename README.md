@@ -7,11 +7,25 @@ Automatically scan and fix code quality issues across Swift, JavaScript/TypeScri
 ## Features
 
 - **Multi-language support** — Swift (SwiftLint, SwiftFormat), JS/TS (ESLint, Prettier), Dart/Flutter (dart analyze, dart format)
+- **Framework detection** — Auto-detects React, Next.js, Vue, Nuxt.js, Express, NestJS and checks for proper ESLint setup
 - **Build verification** — Checks your project builds before and after fixes
 - **AI-powered fixes** — Uses GLM (CodeGeeX-4) for issues that tools can't auto-fix
 - **Safe by default** — Creates file backups before any fix. Auto-rollback if build fails after fixing
 - **2-phase workflow** — Scan → Review → Fix. No surprise changes
 - **Cross-platform CLI** — Works on macOS and Windows
+
+## Supported Frameworks
+
+| Framework | Detection | ESLint Plugins |
+|-----------|-----------|----------------|
+| React | `react` in package.json | eslint-plugin-react, eslint-plugin-react-hooks |
+| Next.js | `next` in package.json | + @next/eslint-plugin-next |
+| Vue | `vue` in package.json | eslint-plugin-vue |
+| Nuxt.js | `nuxt` in package.json | + @nuxt/eslint-plugin |
+| Express.js | `express` in package.json | (basic JS rules) |
+| NestJS | `@nestjs/core` in package.json | (basic TS rules) |
+
+OhMyBug automatically detects these frameworks and warns if required ESLint plugins are missing.
 
 ## Platform Support
 
