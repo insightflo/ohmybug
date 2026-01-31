@@ -239,7 +239,7 @@ function App() {
             </div>
           ) : (
             <div className="empty-state">
-              <div className="empty-state-icon">🐛</div>
+              <div className="empty-state-icon">🐞</div>
               <div>Select a project folder to scan for issues</div>
             </div>
           )}

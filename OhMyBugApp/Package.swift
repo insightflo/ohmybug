@@ -16,7 +16,10 @@ let package = Package(
             dependencies: [
                 .product(name: "OhMyBugCore", package: "OhMyBugCore"),
             ],
-            path: "OhMyBugApp"
+            path: "OhMyBugApp",
+            resources: [
+                .copy("Resources/AppIcon.icns")
+            ]
         ),
     ]
 )

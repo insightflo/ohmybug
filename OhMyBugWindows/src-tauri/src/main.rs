@@ -2,7 +2,6 @@
 
 use serde::{Deserialize, Serialize};
 use std::process::Command;
-use tauri::Manager;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ScanResult {
